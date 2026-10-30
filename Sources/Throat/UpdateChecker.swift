@@ -3,6 +3,8 @@ import Foundation
 struct Release: Equatable {
     let version: String
     let page: URL
+    /// The DMG attached to the release, if there is one.
+    let download: URL?
 }
 
 /// Asks GitHub for the latest published release. Sends no data beyond the request itself.
@@ -26,10 +28,12 @@ enum UpdateChecker {
     }
 
     static func parse(_ data: Data) -> Release? {
-        struct Payload: Decodable { let tag_name: String; let html_url: URL? }
+        struct Asset: Decodable { let name: String; let browser_download_url: URL }
+        struct Payload: Decodable { let tag_name: String; let html_url: URL?; let assets: [Asset]? }
         guard let payload = try? JSONDecoder().decode(Payload.self, from: data) else { return nil }
         let version = payload.tag_name.hasPrefix("v") ? String(payload.tag_name.dropFirst()) : payload.tag_name
-        return Release(version: version, page: payload.html_url ?? releasesPage)
+        let dmg = payload.assets?.first { $0.name.lowercased().hasSuffix(".dmg") }
+        return Release(version: version, page: payload.html_url ?? releasesPage, download: dmg?.browser_download_url)
     }
 
     /// Compares dotted versions numerically, so 0.10.0 is newer than 0.9.0 and 1.0 equals 1.0.0.

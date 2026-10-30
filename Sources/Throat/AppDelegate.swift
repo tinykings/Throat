@@ -20,8 +20,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var finishTimeout: DispatchWorkItem?
     private var earliestDelivery = Date.distantPast
     private var generation = UUID()
-    private var availableUpdate: Release?
-    private var updateTimer: Timer?
     private lazy var settings: SettingsWindowController = {
         let model = SettingsModel(shortcut: shortcut)
         model.onShortcutChange = { [weak self] candidate in
@@ -76,10 +74,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDefaults.standard.set(true, forKey: "didShowSettings")
             showSettings()
         }
-        checkForUpdates(manual: false)
-        updateTimer = Timer.scheduledTimer(withTimeInterval: 24 * 60 * 60, repeats: true) { [weak self] _ in
-            self?.checkForUpdates(manual: false)
-        }
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
@@ -97,10 +91,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let copy = add(menu, "Copy Last Transcript", #selector(copyLast))
         copy.isEnabled = !lastTranscript.isEmpty
         add(menu, Permission.allGranted ? "Settings…" : "Settings…  ⚠︎ Permissions needed", #selector(showSettings))
-        if let availableUpdate {
-            add(menu, "Update Available: \(availableUpdate.version)…", #selector(openUpdate))
+        // Updates are checked and installed from Settings, which checks whenever it opens.
+        if case .available(let release) = settings.model.update {
+            add(menu, "Update Available: \(release.version)…", #selector(showSettings))
         } else {
-            add(menu, "Check for Updates…", #selector(checkForUpdatesFromMenu))
+            add(menu, "Check for Updates…", #selector(showSettings))
         }
         menu.addItem(.separator())
         add(menu, "Quit Throat", #selector(quit))
@@ -266,8 +261,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateIcon() {
         statusItem?.button?.image = MenuBarIcon.image
-        // Fade out while recording so it doesn't duplicate the system mic indicator; keeps its slot so neighbours don't shift.
-        statusItem?.button?.alphaValue = state == .recording ? 0 : 1
+        // Tint the template icon red while recording so it's clear dictation is on.
+        statusItem?.button?.contentTintColor = state == .recording ? .systemRed : nil
         statusItem?.button?.toolTip = "Throat — \(shortcut.label) to dictate"
     }
 
@@ -278,26 +273,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func showSettings() {
         settings.model.shortcut = shortcut
         settings.show()
-    }
-    @objc private func openUpdate() {
-        NSWorkspace.shared.open(availableUpdate?.page ?? UpdateChecker.releasesPage)
-    }
-    @objc private func checkForUpdatesFromMenu() { checkForUpdates(manual: true) }
-
-    /// Automatic checks stay silent unless a newer release exists; manual checks always report back.
-    private func checkForUpdates(manual: Bool) {
-        UpdateChecker.latest { [weak self] release in
-            guard let self else { return }
-            let current = UpdateChecker.currentVersion
-            if let release, UpdateChecker.isNewer(release.version, than: current) {
-                self.availableUpdate = release
-                if manual { self.openUpdate() }
-                return
-            }
-            // Never interrupt dictation with a status message.
-            guard manual, self.state == .idle || self.state == .message else { return }
-            self.showMessage(release == nil ? "Couldn't check for updates. Try again later." : "Throat \(current) is up to date.")
-        }
     }
     @objc private func quit() { cancel(); NSApp.terminate(nil) }
 

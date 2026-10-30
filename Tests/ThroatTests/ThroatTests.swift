@@ -119,10 +119,16 @@ final class ThroatTests: XCTestCase {
     }
 
     func testParsesReleaseTag() {
-        let json = #"{"tag_name": "v1.2.3", "html_url": "https://github.com/tinykings/Throat/releases/tag/v1.2.3"}"#
+        let json = #"""
+            {"tag_name": "v1.2.3", "html_url": "https://github.com/tinykings/Throat/releases/tag/v1.2.3",
+             "assets": [{"name": "notes.txt", "browser_download_url": "https://example.com/notes.txt"},
+                        {"name": "Throat-1.2.3.dmg", "browser_download_url": "https://example.com/Throat-1.2.3.dmg"}]}
+            """#
         let release = UpdateChecker.parse(Data(json.utf8))
         XCTAssertEqual(release?.version, "1.2.3")
         XCTAssertEqual(release?.page.absoluteString, "https://github.com/tinykings/Throat/releases/tag/v1.2.3")
+        XCTAssertEqual(release?.download?.absoluteString, "https://example.com/Throat-1.2.3.dmg")
+        XCTAssertNil(UpdateChecker.parse(Data(#"{"tag_name": "v1.0"}"#.utf8))?.download)
         XCTAssertNil(UpdateChecker.parse(Data("{}".utf8)))
     }
 }

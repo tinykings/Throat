@@ -85,8 +85,13 @@ enum Permission: CaseIterable, Identifiable {
     }
 }
 
+enum UpdateStatus: Equatable {
+    case unknown, checking, upToDate, failed(String), available(Release), installing
+}
+
 final class SettingsModel: ObservableObject {
     @Published var shortcut: Shortcut
+    @Published var update = UpdateStatus.unknown
     @Published var isRecording = false
     @Published var shortcutError: String?
     @Published private(set) var access: [Permission: Permission.Access] = [:]
@@ -103,6 +108,31 @@ final class SettingsModel: ObservableObject {
     func refresh() {
         let current = Dictionary(uniqueKeysWithValues: Permission.allCases.map { ($0, $0.access) })
         if current != access { access = current }
+    }
+
+    /// Checks only while someone is looking at Settings, so nothing runs in the background.
+    func checkForUpdates() {
+        switch update {
+        case .checking, .installing, .available: return
+        default: break
+        }
+        update = .checking
+        UpdateChecker.latest { [weak self] release in
+            guard let self, self.update == .checking else { return }
+            if let release, UpdateChecker.isNewer(release.version, than: UpdateChecker.currentVersion) {
+                self.update = .available(release)
+            } else {
+                self.update = release == nil ? .failed("Couldn't check for updates.") : .upToDate
+            }
+        }
+    }
+
+    func installUpdate() {
+        guard case .available(let release) = update else { return }
+        update = .installing
+        UpdateInstaller.install(release) { [weak self] error in
+            self?.update = .failed(error.localizedDescription)
+        }
     }
 
     func allow(_ permission: Permission) {
@@ -163,6 +193,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     func show() {
         model.refresh()
+        model.checkForUpdates()
         if window?.isVisible != true { window?.center() }
         NSApp.activate(ignoringOtherApps: true)
         showWindow(nil)
@@ -221,9 +252,17 @@ struct SettingsView: View {
                 }
             }
             Section {
-                LabeledContent("Version \(UpdateChecker.currentVersion)") {
-                    Link("View on GitHub", destination: UpdateChecker.repository)
+                LabeledContent {
+                    updateControl
+                } label: {
+                    Text("Version \(UpdateChecker.currentVersion)")
+                    Link("View on GitHub", destination: UpdateChecker.repository).font(.caption)
                 }
+                if case .failed(let reason) = model.update {
+                    Text(reason).font(.callout).foregroundStyle(.orange)
+                }
+            } header: {
+                Text("Updates")
             }
         }
         .formStyle(.grouped)
@@ -249,6 +288,32 @@ struct SettingsView: View {
             .font(.callout)
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder private var updateControl: some View {
+        switch model.update {
+        case .unknown, .failed:
+            Button("Check for Updates") { model.checkForUpdates() }
+        case .checking:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Checking…").foregroundStyle(.secondary)
+            }
+        case .upToDate:
+            Label("Up to date", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.green)
+                .font(.callout)
+        case .available(let release) where release.download == nil:
+            Link("Download \(release.version)", destination: release.page)
+        case .available(let release):
+            Button("Install \(release.version)") { model.installUpdate() }
+                .buttonStyle(.borderedProminent)
+        case .installing:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Installing…").foregroundStyle(.secondary)
+            }
+        }
     }
 
     private var shortcutButton: some View {
