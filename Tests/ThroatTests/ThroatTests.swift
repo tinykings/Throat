@@ -63,6 +63,39 @@ final class ThroatTests: XCTestCase {
         XCTAssertEqual(buffer.text, "Hello world.")
     }
 
+    func testRestartWithinSegmentKeepsEarlierWords() {
+        var buffer = TranscriptBuffer()
+        buffer.update("This is the first part of what I said.")
+        buffer.update("And")
+        buffer.update("And then the second part.")
+        XCTAssertEqual(buffer.text, "This is the first part of what I said. And then the second part.")
+        buffer.update("Finally")
+        XCTAssertEqual(buffer.text, "This is the first part of what I said. And then the second part. Finally")
+    }
+
+    func testRestartStartingWithSameWordKeepsEarlierWords() {
+        var buffer = TranscriptBuffer()
+        buffer.update("I think we should go today.")
+        buffer.update("I")
+        buffer.update("I went home.")
+        XCTAssertEqual(buffer.text, "I think we should go today. I went home.")
+    }
+
+    func testRevisionsThatShortenAreNotRestarts() {
+        var buffer = TranscriptBuffer()
+        buffer.update("hello world how are you doing")
+        buffer.update("Hello, world. How are you?")
+        XCTAssertEqual(buffer.text, "Hello, world. How are you?")
+    }
+
+    func testFullFinalResultAfterRestartDoesNotDuplicate() {
+        var buffer = TranscriptBuffer()
+        buffer.update("First part of it.")
+        buffer.update("Second part.")
+        buffer.update("First part of it. Second part.")
+        XCTAssertEqual(buffer.text, "First part of it. Second part.")
+    }
+
     func testOnlyNoSpeechErrorsAreRestartable() {
         XCTAssertTrue(SpeechRecorder.isSilenceError(NSError(domain: "kAFAssistantErrorDomain", code: 1110)))
         XCTAssertTrue(SpeechRecorder.isSilenceError(NSError(domain: "kLSRErrorDomain", code: 203)))

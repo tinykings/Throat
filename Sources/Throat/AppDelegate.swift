@@ -155,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Finishes recognition, then pastes into the frontmost app or only copies to the clipboard.
+    /// Finishes recognition, then copies the text and pastes it into the frontmost app; Escape only copies.
     private func stop(paste: Bool) {
         guard state == .recording else { return }
         escapeKey.unregister()

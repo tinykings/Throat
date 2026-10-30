@@ -4,7 +4,7 @@ import Carbon
 
 enum PasteOutcome: Equatable {
     case pasted
-    /// No text field was focused, so the text was only put on the clipboard.
+    /// There was no other app to paste into, so the text was only put on the clipboard.
     case copied
     case failed(String)
 }
@@ -23,11 +23,11 @@ final class PasteService {
         return true
     }
 
+    /// Always copies, then pastes into the frontmost app without checking for a text field.
     /// Never activates an app or sends Return. Abort if focus changes while waiting.
-    /// Falls back to copying when no text field is focused.
     static func paste(_ text: String, into target: NSRunningApplication?, completion: @escaping (PasteOutcome) -> Void) {
+        copy(text)
         guard let target, target.processIdentifier != ProcessInfo.processInfo.processIdentifier else {
-            copy(text)
             completion(.copied)
             return
         }
@@ -37,41 +37,33 @@ final class PasteService {
     private static func attempt(_ text: String, target: NSRunningApplication, remaining: Int,
                                 completion: @escaping (PasteOutcome) -> Void) {
         guard isTrusted else {
-            completion(.failed("Turn on Accessibility in Throat Settings to paste automatically. Your text is kept in the menu."))
+            completion(.failed("Turn on Accessibility in Throat Settings to paste automatically. Your text is on the clipboard."))
             return
         }
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier == target.processIdentifier else {
-            completion(.failed("Focus changed, so nothing was pasted. Use Copy Last Transcript in the menu."))
+            completion(.failed("Focus changed, so nothing was pasted. Your text is on the clipboard."))
             return
         }
         let flags = CGEventSource.flagsState(.combinedSessionState)
         if !flags.intersection([.maskCommand, .maskControl, .maskAlternate, .maskShift]).isEmpty {
-            guard remaining > 0 else { completion(.failed("Release the shortcut keys, then use Copy Last Transcript in the menu.")); return }
+            guard remaining > 0 else { completion(.failed("Release the shortcut keys, then press ⌘V to paste.")); return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 attempt(text, target: target, remaining: remaining - 1, completion: completion)
             }
             return
         }
-        switch focusedField(in: target) {
-        case .secure:
-            completion(.failed("Pasting into password fields is disabled."))
+        if isSecureFieldFocused(in: target) {
+            completion(.failed("Pasting into password fields is disabled. Your text is on the clipboard."))
             return
-        case .none:
-            copy(text)
-            completion(.copied)
-            return
-        case .editable, .unknown:
-            break
         }
         guard let source = CGEventSource(stateID: .privateState),
               let down = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: true),
               let up = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: false) else {
-            completion(.failed("Could not create a paste event. Use Copy Last Transcript in the menu."))
+            completion(.failed("Could not paste automatically. Your text is on the clipboard."))
             return
         }
         // Do not inspect/read other apps' clipboard data: macOS may prompt for data access.
         // Keep the dictated text on the clipboard for recovery instead of restoring old contents.
-        copy(text)
         down.flags = .maskCommand
         up.flags = .maskCommand
         down.post(tap: .cghidEventTap)
@@ -84,38 +76,13 @@ final class PasteService {
         NSPasteboard.general.setString(text, forType: .string)
     }
 
-    private enum FocusedField { case editable, secure, none, unknown }
-
-    private static let textRoles: Set<String> = [
-        kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole, "AXSearchField",
-    ]
-
-    /// `.unknown` when the app doesn't expose Accessibility; paste anyway rather than guess.
-    private static func focusedField(in target: NSRunningApplication) -> FocusedField {
+    /// The only focus check left: never type dictated text into a password field.
+    private static func isSecureFieldFocused(in target: NSRunningApplication) -> Bool {
         let app = AXUIElementCreateApplication(target.processIdentifier)
-        // Electron/Chromium apps only build their accessibility tree when asked.
-        AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue)
         var focused: CFTypeRef?
-        switch AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focused) {
-        case .success: break
-        case .noValue: return .none
-        default: return .unknown
-        }
-        guard let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return .none }
-        let element = focused as! AXUIElement
-        if (string(element, kAXSubroleAttribute) == kAXSecureTextFieldSubrole) { return .secure }
-        if let role = string(element, kAXRoleAttribute), textRoles.contains(role) { return .editable }
-        var editable: CFTypeRef?
-        if AXUIElementCopyAttributeValue(element, "AXEditable" as CFString, &editable) == .success,
-           (editable as? Bool) == true {
-            return .editable
-        }
-        var settable = DarwinBoolean(false)
-        if AXUIElementIsAttributeSettable(element, kAXSelectedTextRangeAttribute as CFString, &settable) == .success,
-           settable.boolValue {
-            return .editable
-        }
-        return .none
+        guard AXUIElementCopyAttributeValue(app, kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+              let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return false }
+        return string(focused as! AXUIElement, kAXSubroleAttribute) == kAXSecureTextFieldSubrole
     }
 
     private static func string(_ element: AXUIElement, _ attribute: String) -> String? {
