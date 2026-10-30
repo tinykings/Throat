@@ -1,4 +1,8 @@
-# Throat
+<p align="center">
+  <img src="Support/AppIcon-source.png" alt="Throat app icon" width="128" height="128">
+</p>
+
+<h1 align="center">Throat</h1>
 
 A tiny native macOS menu-bar dictation app. Swift + AppKit + Apple's speech recognition. No third-party dependencies, accounts, AI rewriting, telemetry, history files, or background audio capture.
 
