@@ -192,9 +192,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         state = .delivering
         panel.orderOut(nil)
         let id = generation
-        PasteService.paste(transcript, into: target) { [weak self] error in
+        PasteService.paste(transcript, into: target) { [weak self] outcome in
             guard let self, self.generation == id else { return }
-            if let error { self.showMessage(error) } else { self.cancel() }
+            switch outcome {
+            case .pasted: self.cancel()
+            case .copied: self.showCopied()
+            case .failed(let error): self.showMessage(error)
+            }
         }
     }
 

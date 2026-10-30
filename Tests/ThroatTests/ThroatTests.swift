@@ -17,16 +17,17 @@ final class ThroatTests: XCTestCase {
         XCTAssertEqual(decoded.label, shortcut.label)
     }
 
-    func testMissingPasteTargetIsRejected() {
-        var error: String?
-        PasteService.paste("Do not paste this", into: nil) { error = $0 }
-        XCTAssertNotNil(error)
+    func testMissingPasteTargetIsOnlyCopied() {
+        var outcome: PasteOutcome?
+        PasteService.paste("Do not paste this", into: nil) { outcome = $0 }
+        XCTAssertEqual(outcome, .copied)
     }
 
-    func testSelfPasteIsRejected() {
-        var error: String?
-        PasteService.paste("Do not paste this", into: .current) { error = $0 }
-        XCTAssertNotNil(error)
+    func testSelfPasteIsNotPasted() {
+        var outcome: PasteOutcome?
+        PasteService.paste("Do not paste this", into: .current) { outcome = $0 }
+        XCTAssertNotNil(outcome)
+        XCTAssertNotEqual(outcome, .pasted)
     }
 
     func testSilenceDoesNotClearTranscript() {

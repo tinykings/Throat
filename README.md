@@ -31,7 +31,7 @@ The microphone icon in the menu bar contains **Change Shortcut…**, **Copy Last
 - Pasting uses a normal Command-V; it never sends Return. Known password fields are rejected. Focus changes during delivery abort the paste rather than redirecting it. If Accessibility is not granted, stopping copies the transcript instead; press ⌘V manually. Denied microphone/speech permissions each have an explicit menu link to the appropriate System Settings page.
 - Dictation replaces the clipboard and stays there for recovery. Throat does not read or restore other apps' clipboard contents, avoiding extra clipboard/data-access prompts. Some apps don't accept synthetic paste; use **Copy Last Transcript** if needed.
 - Apple's recognizer can stall after a long pause or hit its session limit. Throat closes the current recognition segment after about two seconds of silence (and before the online limit) and opens a new one while the microphone keeps running, so speech after a pause isn't lost. Unexpected recognition failures preserve the partial transcript in the menu.
-- Only the shortcut or **Stop & Paste** menu command finishes dictation. Make sure a text field is focused before stopping.
+- Only the shortcut or **Stop & Paste** menu command finishes dictation. If no text field is focused when you stop, the transcript is copied to the clipboard instead.
 
 ## Development
 
