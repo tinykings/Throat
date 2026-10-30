@@ -1,10 +1,14 @@
 # Builds Throat.dmg and attaches it to a GitHub Release whenever a version tag is pushed:
 #   git tag v1.0.0 && git push origin v1.0.0
 #
-# Signing and notarization are optional. Without the secrets below the app is ad-hoc signed,
-# and people who download it must right-click → Open (or allow it in Privacy & Security) the first time.
-#   DEVELOPER_ID_P12           base64 of your "Developer ID Application" certificate exported as .p12
-#   DEVELOPER_ID_P12_PASSWORD  the .p12 export password
+# Signing and notarization are optional. Without the secrets below the app is ad-hoc signed: it gets
+# a new identity every release, so macOS forgets its permissions on each update.
+#   SIGNING_P12           base64 of a code-signing certificate exported as .p12. Either a
+#                         "Developer ID Application" certificate (opens without warnings once notarized)
+#                         or a self-signed one (free; keeps permissions across updates, but macOS still
+#                         asks people to approve each new download)
+#   SIGNING_P12_PASSWORD  the .p12 export password
+# Notarization needs a Developer ID certificate:
 #   NOTARY_APPLE_ID            your Apple ID email
 #   NOTARY_TEAM_ID             your 10-character Apple Developer Team ID
 #   NOTARY_PASSWORD            an app-specific password from account.apple.com
@@ -25,8 +29,8 @@ jobs:
 
       - name: Import signing certificate
         env:
-          P12: ${{ secrets.DEVELOPER_ID_P12 }}
-          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          P12: ${{ secrets.SIGNING_P12 }}
+          P12_PASSWORD: ${{ secrets.SIGNING_P12_PASSWORD }}
         if: env.P12 != ''
         run: |
           KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
@@ -38,7 +42,13 @@ jobs:
           security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"
           security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
           security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
-          echo "SIGNING_IDENTITY=Developer ID Application" >> "$GITHUB_ENV"
+          # A self-signed certificate isn't trusted, so look it up without -v and sign by its SHA-1 hash.
+          IDENTITY="$(security find-identity -p codesigning "$KEYCHAIN" | awk '/\)/{print; exit}')"
+          if [[ "$IDENTITY" == *'"Developer ID Application'* ]]; then
+            echo "SIGNING_IDENTITY=Developer ID Application" >> "$GITHUB_ENV"
+          else
+            echo "SIGNING_IDENTITY=$(awk '{print $2}' <<< "$IDENTITY")" >> "$GITHUB_ENV"
+          fi
 
       - name: Test
         run: swift test

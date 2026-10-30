@@ -55,6 +55,10 @@ git push origin v1.0.0
 
 To build the same DMG locally: `UNIVERSAL=1 VERSION=1.0.0 ./build.sh && ./make-dmg.sh`.
 
-Without signing secrets the release is ad-hoc signed: macOS blocks it on first launch (right-click → Open, or **Open Anyway** in Privacy & Security), and each update needs its permissions granted again. Adding a Developer ID certificate and notarization credentials as repository secrets (listed at the top of the workflow) removes both problems; this requires a paid Apple Developer Program membership.
+Releases are signed with the certificate in the `SIGNING_P12` and `SIGNING_P12_PASSWORD` repository secrets (listed at the top of the workflow):
+
+- **Self-signed certificate** (free): the app keeps one identity across releases, so macOS remembers its permissions after an update. macOS still blocks each new download on first launch (right-click → Open, or **Open Anyway** in Privacy & Security). Keep the `.p12` and its password backed up: signing with a different certificate means everyone grants permissions again.
+- **Developer ID certificate** plus the notarization secrets: also removes the first-launch block. Requires a paid Apple Developer Program membership.
+- **No secrets**: the release is ad-hoc signed and every update needs its permissions granted again.
 
 This is an independent minimal implementation, inspired by FluidVoice's dictation workflow; it does not copy or bundle FluidVoice code or dependencies.
