@@ -21,7 +21,7 @@ Requires macOS 14+ and Xcode Command Line Tools to build.
 5. Click the destination text field, then press **⌥Space** again to stop and paste there. Final recognition may take up to two seconds.
 6. Click **Cancel** in the box to discard without pasting.
 
-The microphone icon in the menu bar contains **Change Shortcut…**, **Copy Last Transcript**, and **Quit**. There are no other preferences. The most recent transcript is held only in memory until quit and is available for recovery if an app doesn't accept paste. There is no automatic launch at login.
+The microphone icon in the menu bar contains **Start Dictation**, **Copy Last Transcript**, **Settings…** (shortcut and permissions), **Check for Updates…**, and **Quit**. When a newer release is out, **Check for Updates…** becomes **Update Available: x.y.z…**, which opens the release page to download it. The most recent transcript is held only in memory until quit and is available for recovery if an app doesn't accept paste. There is no automatic launch at login.
 
 ## Privacy and behavior
 
@@ -31,6 +31,7 @@ The microphone icon in the menu bar contains **Change Shortcut…**, **Copy Last
 - Pasting uses a normal Command-V; it never sends Return. Known password fields are rejected. Focus changes during delivery abort the paste rather than redirecting it. If Accessibility is not granted, stopping copies the transcript instead; press ⌘V manually. Denied microphone/speech permissions each have an explicit menu link to the appropriate System Settings page.
 - Dictation replaces the clipboard and stays there for recovery. Throat does not read or restore other apps' clipboard contents, avoiding extra clipboard/data-access prompts. Some apps don't accept synthetic paste; use **Copy Last Transcript** if needed.
 - Apple's recognizer can stall after a long pause or hit its session limit. Throat closes the current recognition segment after about two seconds of silence (and before the online limit) and opens a new one while the microphone keeps running, so speech after a pause isn't lost. Unexpected recognition failures preserve the partial transcript in the menu.
+- Update checks: at launch and once a day, Throat asks GitHub's public API for the latest release version (`api.github.com/repos/tinykings/Throat/releases/latest`). Nothing about you or your dictation is sent; GitHub sees only the request and your IP address. Updates are never downloaded or installed automatically.
 - Only the shortcut or **Stop & Paste** menu command finishes dictation. If no text field is focused when you stop, the transcript is copied to the clipboard instead.
 
 ## Development

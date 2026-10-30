@@ -76,4 +76,20 @@ final class ThroatTests: XCTestCase {
         recorder.finish()
         recorder.cancel()
     }
+
+    func testVersionComparison() {
+        XCTAssertTrue(UpdateChecker.isNewer("0.2.0", than: "0.1.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("0.10.0", than: "0.9.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("1.0.1", than: "1.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("1.0", than: "1.0.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("0.1.0", than: "0.2.0"))
+    }
+
+    func testParsesReleaseTag() {
+        let json = #"{"tag_name": "v1.2.3", "html_url": "https://github.com/tinykings/Throat/releases/tag/v1.2.3"}"#
+        let release = UpdateChecker.parse(Data(json.utf8))
+        XCTAssertEqual(release?.version, "1.2.3")
+        XCTAssertEqual(release?.page.absoluteString, "https://github.com/tinykings/Throat/releases/tag/v1.2.3")
+        XCTAssertNil(UpdateChecker.parse(Data("{}".utf8)))
+    }
 }
