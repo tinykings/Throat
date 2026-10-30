@@ -220,6 +220,11 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            Section {
+                LabeledContent("Version \(UpdateChecker.currentVersion)") {
+                    Link("View on GitHub", destination: UpdateChecker.repository)
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 480)

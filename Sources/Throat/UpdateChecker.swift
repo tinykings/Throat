@@ -8,7 +8,8 @@ struct Release: Equatable {
 /// Asks GitHub for the latest published release. Sends no data beyond the request itself.
 enum UpdateChecker {
     static let latestURL = URL(string: "https://api.github.com/repos/tinykings/Throat/releases/latest")!
-    static let releasesPage = URL(string: "https://github.com/tinykings/Throat/releases/latest")!
+    static let repository = URL(string: "https://github.com/tinykings/Throat")!
+    static let releasesPage = repository.appendingPathComponent("releases/latest")
     static var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
