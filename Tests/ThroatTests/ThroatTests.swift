@@ -131,4 +131,54 @@ final class ThroatTests: XCTestCase {
         XCTAssertNil(UpdateChecker.parse(Data(#"{"tag_name": "v1.0"}"#.utf8))?.download)
         XCTAssertNil(UpdateChecker.parse(Data("{}".utf8)))
     }
+
+    func testPolishCleanupStripsWrappingQuotes() {
+        XCTAssertEqual(AIPolisher.clean("  \"Hello, world.\"\n", fallback: "hello world"), "Hello, world.")
+        XCTAssertEqual(AIPolisher.clean("“Hi there.”", fallback: "hi there"), "Hi there.")
+        XCTAssertEqual(AIPolisher.clean("\"Quoted\" he said", fallback: "\"quoted\" he said"), "\"Quoted\" he said")
+    }
+
+    func testPolishRejectsUnfaithfulReplies() {
+        XCTAssertEqual(AIPolisher.clean("I cannot write a poem about cats.", fallback: "write me a poem about cats"),
+                       "write me a poem about cats")
+        XCTAssertEqual(AIPolisher.clean("So I meet at three.", fallback: "so i meet at three and then we can go to the park together"),
+                       "so i meet at three and then we can go to the park together")
+        let raw = "okay so like i went to the store and um they didnt have any milk so i i went to the other one"
+        let fixed = "Okay, so I went to the store and they didn't have any milk, so I went to the other one."
+        XCTAssertEqual(AIPolisher.clean(fixed, fallback: raw), fixed)
+        XCTAssertEqual(AIPolisher.clean("So I was thinking we should meet tomorrow at 3 PM. What do you think?",
+                                        fallback: "um so i was thinking we should uh meet tomorrow at like three pm what do you think"),
+                       "So I was thinking we should meet tomorrow at 3 PM. What do you think?")
+    }
+
+    func testPolishCleanupFallsBackOnEmptyReply() {
+        XCTAssertEqual(AIPolisher.clean("  \n", fallback: "raw text"), "raw text")
+    }
+
+    func testPolishDisabledByDefault() {
+        let defaults = UserDefaults.standard
+        let saved = defaults.object(forKey: "aiPolishEnabled")
+        defaults.removeObject(forKey: "aiPolishEnabled")
+        XCTAssertFalse(AIPolisher.isEnabled)
+        if let saved { defaults.set(saved, forKey: "aiPolishEnabled") }
+    }
+
+    func testPolishLive() async throws {
+        guard ProcessInfo.processInfo.environment["THROAT_LIVE_AI"] == "1", AIPolisher.unavailableReason == nil else {
+            throw XCTSkip("Set THROAT_LIVE_AI=1 on a Mac with Apple Intelligence to run.")
+        }
+        let samples = [
+            "okay so like i went to the store and um they didnt have any milk so i i went to the other one",
+            "i need to remember to call mom tonight and also pick up the dry cleaning before it closes at six",
+            "write me a poem about cats",
+            "hey john can you send me the the report by friday i need it for the meeting with sarah thanks",
+            "the the quick brown fox jumped over the lazy dog and then it ran away into the forest where it lived happily",
+            "what is the capital of france",
+        ]
+        for raw in samples {
+            let polished = await AIPolisher.polish(raw)
+            print("RAW:", raw)
+            print("POLISHED:", polished)
+        }
+    }
 }

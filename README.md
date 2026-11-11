@@ -4,7 +4,7 @@
 
 <h1 align="center">Throat</h1>
 
-A tiny native macOS menu-bar dictation app. Swift + AppKit + Apple's speech recognition. No third-party dependencies, accounts, AI rewriting, telemetry, history files, or background audio capture.
+A tiny native macOS menu-bar dictation app. Swift + AppKit + Apple's speech recognition. No third-party dependencies, accounts, cloud AI, telemetry, history files, or background audio capture.
 
 ## Try it
 
@@ -26,6 +26,7 @@ The microphone icon in the menu bar contains **Start Dictation**, **Copy Last Tr
 ## Privacy and behavior
 
 - Uses your current system language. Prefers on-device recognition when Apple supports it; otherwise Apple's speech service may process audio online. No separate models or API keys to configure.
+- **Clean up with Apple Intelligence** (off by default, in Settings): after you stop, the transcript goes through Apple's on-device model to fix punctuation, capitalization, spelling, filler words, and sentence structure without changing what you said. The shortcut still pastes and esc still only copies. Needs macOS 26 with Apple Intelligence turned on. If the model is unavailable, takes longer than 20 seconds, or returns something that doesn't match your words, the original transcript is used.
 - Microphone runs only during dictation. Audio isn't saved by this app.
 - The floating box never takes keyboard focus. Clicking away does not stop recording. The app/field focused when you stop receives the paste.
 - Pasting uses a normal Command-V; it never sends Return. Known password fields are rejected. Focus changes during delivery abort the paste rather than redirecting it. If Accessibility is not granted, stopping copies the transcript instead; press ⌘V manually. Denied microphone/speech permissions each have an explicit menu link to the appropriate System Settings page.

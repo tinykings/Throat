@@ -94,6 +94,8 @@ final class SettingsModel: ObservableObject {
     @Published var update = UpdateStatus.unknown
     @Published var isRecording = false
     @Published var shortcutError: String?
+    @Published var aiPolish = AIPolisher.isEnabled { didSet { AIPolisher.isEnabled = aiPolish } }
+    @Published private(set) var aiUnavailable = AIPolisher.unavailableReason
     @Published private(set) var access: [Permission: Permission.Access] = [:]
     /// Returns false when the shortcut could not be registered.
     var onShortcutChange: ((Shortcut) -> Bool)?
@@ -108,6 +110,8 @@ final class SettingsModel: ObservableObject {
     func refresh() {
         let current = Dictionary(uniqueKeysWithValues: Permission.allCases.map { ($0, $0.access) })
         if current != access { access = current }
+        let reason = AIPolisher.unavailableReason
+        if reason != aiUnavailable { aiUnavailable = reason }
     }
 
     /// Checks only while someone is looking at Settings, so nothing runs in the background.
@@ -235,6 +239,19 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Shortcut")
+            }
+            Section {
+                Toggle(isOn: $model.aiPolish) {
+                    Text("Clean up with Apple Intelligence")
+                    Text("After you stop, fix punctuation, spelling, and sentence structure without changing what you said. Runs on device.")
+                }
+                .disabled(model.aiUnavailable != nil && !model.aiPolish)
+                if let reason = model.aiUnavailable {
+                    Text(model.aiPolish ? reason + " Your text is pasted without cleanup until then." : reason)
+                        .font(.callout).foregroundStyle(.orange)
+                }
+            } header: {
+                Text("AI Cleanup")
             }
             Section {
                 ForEach(Permission.allCases) { permission in

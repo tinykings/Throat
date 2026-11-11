@@ -1,7 +1,7 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
-    private enum State { case idle, preparing, recording, finishing, delivering, message }
+    private enum State { case idle, preparing, recording, finishing, polishing, delivering, message }
     private var state = State.idle
     private let hotKey = HotKey()
     /// Registered only while recording, so Escape reaches other apps normally the rest of the time.
@@ -119,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .idle, .message: start()
         case .recording: stop(paste: true)
         case .preparing: cancel()
-        case .finishing, .delivering: break
+        case .finishing, .polishing, .delivering: break
         }
     }
 
@@ -183,6 +183,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let transcript = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !transcript.isEmpty else { cancel(); return }
         lastTranscript = transcript
+        guard AIPolisher.isEnabled else { send(transcript); return }
+        // Clean up with Apple Intelligence first; on any failure or a slow model, use the raw transcript.
+        state = .polishing
+        panel.show(.polishing, shortcut: shortcut.label)
+        let id = generation
+        let fallback = DispatchWorkItem { [weak self] in
+            guard let self, self.generation == id, self.state == .polishing else { return }
+            self.send(transcript)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 20, execute: fallback)
+        Task { @MainActor in
+            let polished = await AIPolisher.polish(transcript)
+            fallback.cancel()
+            guard self.generation == id, self.state == .polishing else { return }
+            self.lastTranscript = polished
+            self.send(polished)
+        }
+    }
+
+    /// Pastes into the target app, or only copies when Escape stopped dictation.
+    private func send(_ transcript: String) {
         guard pasteWhenDone else {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(transcript, forType: .string)

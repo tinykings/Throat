@@ -4,7 +4,7 @@ import AppKit
 /// camera notch, or hangs from the middle of the menu bar on screens without one.
 /// Messages appear as a small card just below the menu bar.
 final class TranscriptPanel: NSPanel {
-    enum Mode: Equatable { case preparing, listening, finishing, copying, copied, message(String) }
+    enum Mode: Equatable { case preparing, listening, finishing, copying, polishing, copied, message(String) }
     var onCancel: (() -> Void)?
 
     private let island = IslandView()
@@ -65,6 +65,7 @@ final class TranscriptPanel: NSPanel {
             island.toolTip = "\(shortcut) to stop & paste · esc to stop & copy"
         case .finishing: island.configure(dot: .systemBlue, pulsing: false, live: false, text: "Pasting")
         case .copying: island.configure(dot: .systemBlue, pulsing: false, live: false, text: "Copying")
+        case .polishing: island.configure(dot: .systemPurple, pulsing: true, live: false, text: "Polishing")
         case .copied: island.configure(dot: .systemGreen, pulsing: false, live: false, text: "Copied")
         case .message(let text):
             message.stringValue = text
